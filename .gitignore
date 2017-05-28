@@ -2,3 +2,4 @@
 .directory
 __pycache__/
 pycataloguer.db
+dump.sql

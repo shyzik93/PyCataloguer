@@ -2,7 +2,6 @@
 
 import sqlite3
 import sys
-import argparse
 import os
 import hashlib
 
@@ -26,9 +25,9 @@ class PyCataloguer:
               `file_name` VARCHAR(255) NOT NULL,
               `path_id` INTEGER NOT NULL,
               `path_to_file` VARCHAR(255) NOT NULL,
-              `path_to_torrnet_file` VARCHAR(255),
+              `path_to_torrent_file` VARCHAR(255),
               `url_to_file` VARCHAR(255),
-              `md5` VARCHAR(40),
+              `md5` VARCHAR(40) UNIQUE,
               FOREIGN KEY (path_id) REFERENCES path(path_id)
             );
             CREATE TABLE IF NOT EXISTS `category_name` (
@@ -89,6 +88,7 @@ class PyCataloguer:
 
     def path_delete(self, path_id):
         self.cu.execute('DELETE FROM `path` WHERE `path_id`=?', (path_id,))
+        self.c.commit()
         return True, None
 
     def file_add(self, name, path_to_file):
@@ -101,7 +101,7 @@ class PyCataloguer:
         for path in paths:
             if path_to_file.startswith(path['path']):
                 path_id = path['path_id']
-                short_path_to_file = path_to_file[len(path['path']):]
+                short_path_to_file = path_to_file[len(path['path'])+1:] # +1 необходимо для обрезки слэша, так как это не абсолютный путь
                 break
         if path_id is None: return False, 'File placed in not allowed place! Please, do "pycat pathselect" to view allowed place.'
 
@@ -158,10 +158,21 @@ class PyCataloguer:
         rows = self.cu.execute(sql).fetchall()
         return True, rows
 
+    def show_item_raw(self, dct):
+        for key in dct.keys(): print('\033[0;32m {key} = \033[0;33m {value} \033[0;0m'.format(key=key, value=dct[key]))
+
+    def show_item_file(self, file):
+        file = dict(file)
+        file['path_to_file'] = os.path.join(file['path'], file['path_to_file'])
+        del file['path_id'], file['path']
+        self.show_item_raw(file)
+
 if __name__ == "__main__":
+    import argparse
+
     def proc_answer(is_success, arg1):
         if not is_success:
-            print(arg1)
+            print('\033[0;31m {0} \033[0;0m'.format(arg1))
             exit(2)
 
     with PyCataloguer() as cat:
@@ -175,12 +186,13 @@ if __name__ == "__main__":
         subparser1.add_argument('path')
 
         subparser2 = subparsers.add_parser('fileselect', help='view your files')
-        subparser2.add_argument('--name', nargs='+')
+        subparser2.add_argument('name', nargs='+')
+        subparser2.add_argument('--view', choices=['simple', 'props', 'paths', 'raw'], default='simple')
 
         subparser3 = subparsers.add_parser('query', help='do sql-query')
         subparser3.add_argument('sql', help='any sql')
 
-        subparser4 = subparsers.add_parser('fileprop', help='view data about file')
+        subparser4 = subparsers.add_parser('fileprops', help='view data about file')
         subparser4.add_argument('file_id', help='id of file')
         subparser4.add_argument('--general', action='store_true')
         subparser4.add_argument('--categories', action='store_true')
@@ -192,6 +204,14 @@ if __name__ == "__main__":
 
         subparser7 = subparsers.add_parser('pathadd', help='add allowed directories')
         subparser7.add_argument('path', help='path', nargs='+')
+
+        subparser8 = subparsers.add_parser('export', help='view dump of database')
+
+        subparser9 = subparsers.add_parser('import', help='view dump of database')
+        subparser9.add_argument('sql_file', help='path to sql dump', type=argparse.FileType('r'))
+
+        subparser10 = subparsers.add_parser('pathrm', help='remove paths from db')
+        subparser10.add_argument('path_id', help='id of path', nargs='+')
  
         args = parser.parse_args()
         print(args)
@@ -212,8 +232,16 @@ if __name__ == "__main__":
             proc_answer(is_success, files)
 
             for file in files:
-                print('---------------')
-                print(file['file_id'], file['file_name'])
+                if args.view == 'simple':
+                    print(file['file_id'], file['file_name'])
+                elif args.view == 'paths':
+                    print(os.path.join(file['path'], file['path_to_file']))
+                elif args.view == 'props':
+                    print('---------------')
+                    cat.show_item_file(file)
+                elif args.view == 'raw':
+                    print('---------------')
+                    cat.show_item_raw(file)
 
         elif args.command == 'query':
 
@@ -223,17 +251,23 @@ if __name__ == "__main__":
                 print('---------------')
                 for key in row.keys(): print(key, '=', row[key])
 
-        elif args.command == 'fileprop':
+        elif args.command == 'fileprops':
 
             is_success, files = cat.file_select(file_id=('=', args.file_id))
             proc_answer(is_success, files)
             if len(files) == 1:
-                for key in files[0].keys(): print(key, '=', files[0][key])
+                cat.show_item_file(files[0])
 
         elif args.command == 'filerm':
 
             for file_id in args.file_id:
                 is_success, none = cat.file_delete(file_id)
+                proc_answer(is_success, none)
+
+        elif args.command == 'pathrm':
+
+            for path_id in args.path_id:
+                is_success, none = cat.path_delete(path_id)
                 proc_answer(is_success, none)
 
         elif args.command == 'pathselect':
@@ -248,3 +282,19 @@ if __name__ == "__main__":
                 is_success, path_id = cat.path_add(path)
                 proc_answer(is_success, path_id)
                 print(path_id)
+
+        elif args.command == 'filescan':
+
+            pass
+
+        elif args.command == 'export':
+
+            for line in cat.c.iterdump():
+                print(line)
+
+        elif args.command == 'import': 
+
+            rows = cat.c.executescript(args.sql_file.read())
+            cat.c.commit()
+            if (rows):
+                for row in rows: print(dict(row))

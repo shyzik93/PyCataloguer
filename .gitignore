@@ -1,0 +1,4 @@
+*.pyc
+.directory
+__pycache__/
+pycataloguer.db

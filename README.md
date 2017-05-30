@@ -13,13 +13,12 @@ The programm doesn't remove, replace or rename origing files on your computer. O
 - [x] import/export sql dump of database
 - [ ] categories - adding, deliting, parenting (tree of categories)
 - [ ] categories - adding files to categories
-- [ ] files - open via standart software
-- [ ] files - scan directories and adding new files
+- [ ] files - open via standart software (from search and from viewing properties)
+- [x] files - scan directories and adding new files
 - [ ] files - scan directories and search replaced files (by md5-hash)
 
 # Ideal Roadmap
 
 - [ ] - adding file to the database, by selecting item from context menu of your favourite file manager (on Linux, Mac, Windows)
-- [ ] - open files from the programm in standart software
 
 I hope PyCataloguer will help you! :)

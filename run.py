@@ -5,6 +5,11 @@ import sys
 import os
 import hashlib
 
+READ = '\033[0;31m'
+NORM = '\033[0;0m'
+GREEN= '\033[0;32m'
+ORANGE = '\033[0;33m'
+
 class PyCataloguer:
 
     def __init__(self):
@@ -65,8 +70,15 @@ class PyCataloguer:
             return False  # False - исключение не обработано
                           # True  - исключение обработано
 
-    def path_select(self):
-        rows = self.cu.execute('SELECT * FROM `path`').fetchall()
+    def path_select(self, path_id=None):
+        if path_id is not None:
+            where = ' WHERE `path_id`=?'
+            args = (path_id,)
+        else:
+            where = ''
+            args = ()
+
+        rows = self.cu.execute('SELECT * FROM `path`'+where, args).fetchall()
         return True, rows
 
     def path_add(self, path):
@@ -159,12 +171,15 @@ class PyCataloguer:
         return True, rows
 
     def show_item_raw(self, dct):
-        for key in dct.keys(): print('\033[0;32m {key} = \033[0;33m {value} \033[0;0m'.format(key=key, value=dct[key]))
+        for key in dct.keys(): print('{GREEN} {key} = {ORANGE} {value} {NORM}'.format(key=key, value=dct[key], GREEN=GREEN, ORANGE=ORANGE, NORM=NORM))
 
     def show_item_file(self, file):
         file = dict(file)
         file['path_to_file'] = os.path.join(file['path'], file['path_to_file'])
         del file['path_id'], file['path']
+
+        file = {key: value for key, value in file.items() if value is not None}
+
         self.show_item_raw(file)
 
 if __name__ == "__main__":
@@ -172,7 +187,7 @@ if __name__ == "__main__":
 
     def proc_answer(is_success, arg1):
         if not is_success:
-            print('\033[0;31m {0} \033[0;0m'.format(arg1))
+            print('{READ} {0} {NORM}'.format(arg1, READ=READ, NORM=NORM))
             exit(2)
 
     with PyCataloguer() as cat:
@@ -212,6 +227,9 @@ if __name__ == "__main__":
 
         subparser10 = subparsers.add_parser('pathrm', help='remove paths from db')
         subparser10.add_argument('path_id', help='id of path', nargs='+')
+
+        subparser11 = subparsers.add_parser('filescan', help='scan directories for new files')
+        subparser11.add_argument('--path_id', help='id of path', default=None)
  
         args = parser.parse_args()
         print(args)
@@ -285,7 +303,34 @@ if __name__ == "__main__":
 
         elif args.command == 'filescan':
 
-            pass
+            import subprocess
+
+            is_success, paths = cat.path_select(args.path_id)
+            proc_answer(is_success, paths)
+            for path in paths:
+                print(ORANGE, '# scan in {0}'.format(path['path']), NORM, '\n')
+                is_break = False
+                for root, dirs, files in os.walk(path['path']):
+                    for file in files:
+                        path_to_file = os.path.join(root, file)
+                        # Проверяем наличие файла в базе
+                        with open(path_to_file, 'rb') as f:
+                            md5 = hashlib.md5(f.read()).hexdigest()
+                            is_success, rows = cat.file_select(md5=('=', [md5]))
+                            proc_answer(is_success, rows)
+                            if len(rows) == 1:
+                                continue
+
+                        print(ORANGE, root)
+                        print(GREEN, file, NORM)
+                        name = input().strip()
+                        print('\x1b[4A\x1b[J')# clear = '\x1b[3;J\x1b[H\x1b[2J'
+
+                        if not name: continue
+                        is_success, file_id = cat.file_add(name, path_to_file)
+                        proc_answer(is_success, file_id)
+
+                    if is_break: break
 
         elif args.command == 'export':
 

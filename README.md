@@ -4,21 +4,26 @@ PyCataloguer is universal cataloguer for your files. You can organaze books, vid
 
 The programm has command line interface. I wiil be very happy, if you will make GUI for it!
 
-The programm doesn't remove, replace or rename origing files on your computer. Only add path to origin file into own database.
+The programm doesn't remove, replace or rename origin files on your computer. It works with data of files in own database.
+
+The programm use library "SQLAlchemy". To install it you can run command: "pip install SQLAlchemy" or "pip3 install SQLAlchemy"
 
 # Roadmap
 
 - [x] files - adding, deleting, viewing.
+- [X] files - editing general properties (updating)
 - [x] paths, where PyCataloguer search the files - adding, deleting, viewing.
 - [x] import/export sql dump of database
-- [ ] categories - adding, deliting, parenting (tree of categories)
+- [x] categories - adding, deliting, parenting (tree of categories)
 - [ ] categories - adding files to categories
 - [ ] files - open via standart software (from search and from viewing properties)
 - [x] files - scan directories and adding new files
 - [ ] files - scan directories and search replaced files (by md5-hash)
+- [ ] properties - adding, editing, adding to files
 
 # Ideal Roadmap
 
 - [ ] - adding file to the database, by selecting item from context menu of your favourite file manager (on Linux, Mac, Windows)
+- [ ] - поиск по принципиальным электрическим схемам
 
 I hope PyCataloguer will help you! :)

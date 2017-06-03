@@ -4,6 +4,8 @@ import sqlite3
 import sys
 import os
 import hashlib
+import csv
+import zipfile
 
 import sqlalchemy as alch
 from sqlalchemy.ext.declarative import declarative_base
@@ -128,7 +130,7 @@ class PyCataloguer:
 
     def __init__(self):
 
-        db_path = os.path.join(os.path.dirname(__file__), 'pycataloguer8.db')
+        db_path = os.path.join(os.path.dirname(__file__), 'pycataloguer.db')
 
         self.c = sqlite3.connect(db_path)
         self.c.row_factory = sqlite3.Row
@@ -427,6 +429,29 @@ class PyCataloguer:
 
         return True, None
 
+    def export(self, Table, path, fzip):
+        fname = '{0}.csv'.format(Table.__tablename__)
+        fpath = os.path.join(path, fname)
+        f = open(fpath, 'w')
+        fcsv = csv.writer(f)
+
+        # формируем и записываем заголовки полей
+        field_names = []
+        for column in Table.__table__.columns:
+            field_names.append(column.name)
+        fcsv.writerow(field_names)
+
+        # вынимаем из базы записываем значения полей
+        for row in self.session.query(Table):
+            field_values = [getattr(row, name) for name in field_names]
+            fcsv.writerow(field_values)
+
+        # архивируем файл, а после - удаляем неархивированный файл
+        f.close()
+        fzip.write(fpath, fname)
+        os.remove(fpath)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -466,9 +491,12 @@ if __name__ == "__main__":
         subparser7.add_argument('path', help='path', nargs='+')
 
         subparser8 = subparsers.add_parser('export', help='view dump of database')
+        subparser8.add_argument('--format', default='csv')
 
         subparser9 = subparsers.add_parser('import', help='view dump of database')
-        subparser9.add_argument('sql_file', help='path to sql dump', type=argparse.FileType('r'))
+        #subparser9.add_argument('sql_file', help='path to sql dump', type=argparse.FileType('r'))
+        subparser9.add_argument('--format', default='csv')
+        subparser9.add_argument('archive', help='path to archive')
 
         subparser10 = subparsers.add_parser('pathrm', help='remove paths from db')
         subparser10.add_argument('path_id', help='id of path', nargs='+')
@@ -611,15 +639,70 @@ if __name__ == "__main__":
 
         elif args.command == 'export':
 
-            for line in cat.c.iterdump():
-                print(line)
+            path = os.path.join(os.path.dirname(__file__))
+
+            if  args.format == 'raw':
+
+                f = os.path.join(path, 'dump.sql')
+                f = open(f, 'w')
+                for line in cat.c.iterdump():
+                    f.write(line)
+                    f.write('\n')
+                f.close()
+
+            elif args.format == 'csv':
+
+                fzip = zipfile.ZipFile(os.path.join(path, 'export.zip'), 'w', zipfile.ZIP_DEFLATED)
+
+                cat.export(TablePath, path, fzip)
+                cat.export(TableFile, path, fzip)
+                cat.export(TableCategory, path, fzip)
+                cat.export(TableCategoryFile, path, fzip)
 
         elif args.command == 'import': 
 
-            rows = cat.c.executescript(args.sql_file.read())
-            cat.c.commit()
-            if (rows):
-                for row in rows: print(dict(row))
+            path = os.path.join(os.path.dirname(__file__))
+
+            if args.format == 'raw':
+
+                f = os.path.join(path, 'dump.sql')
+                f = open(f, 'r')
+                rows = cat.c.executescript(f.read())
+                cat.c.commit()
+                if (rows):
+                    for row in rows: print(dict(row))
+
+            elif args.format == 'csv':
+
+                fzip = zipfile.ZipFile(args.archive, 'r')
+                for fname in fzip.namelist():
+                    # Определяем класс таблицы
+                    Table = fname.split('.')[0]
+                    Table = 'Table' + Table.title().replace('_', '')
+                    Table = globals()[Table]
+
+                    # Разархивируем файл
+                    fpath = os.path.join(path, fname)
+                    f2 = open(fpath, 'wb')
+                    f = fzip.open(fname, 'r')
+                    for line in f:
+                        f2.write(line)
+                    f2.close
+
+                    # Импортируем
+                    f2 = open(fpath, 'r')
+                    fcsv = csv.reader(f2)
+                    field_names = []
+                    for index, field_values in enumerate(fcsv):
+                        if index == 0:
+                            field_names = field_values
+                            continue
+                        fields = {key: value for key, value in zip(field_names, field_values)}
+                        tbl = Table(**fields)
+                        cat.session.add(tbl)
+                    cat.session.commit()
+
+                    os.remove(fpath)
 
         elif args.command == 'categoryadd':
 

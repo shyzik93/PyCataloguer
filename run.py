@@ -402,9 +402,15 @@ class PyCataloguer:
         #self.c.commit()
         return True, tblCategory.category_id
 
-    '''def category_select(self):
-        rows = self.engine.execute('SELECT * FROM `category`').fetchall()
-        return True, rows'''
+    def category_print(self, parent_id=0, level=0):
+        ''' @todo Make it using nested sets '''
+        categories = self.session.query(TableCategory).filter(TableCategory.category_parent==parent_id)
+        for category in categories:
+            print('   '*level, category.category_id, category.category_name, category.category_parent)
+            self.category_select(category.category_id, level+1)
+
+        #rows = self.engine.execute('SELECT * FROM `category`').fetchall()
+        #return True, rows
 
     def category_delete(self, category_id):
         # проверяем, не используется ли категория
@@ -420,6 +426,8 @@ class PyCataloguer:
         return True, None
 
     def category_update(self, category_id, fields):
+
+
         allowed = ['category_name', 'category_parent']
         for key in fields:
             if key not in allowed: return False, 'Editing this property is not allowed. You can use next properties: {0}.'.format(', '.join(alloowed))
@@ -716,9 +724,12 @@ if __name__ == "__main__":
 
             #is_success, categories = cat.category_select()
             #proc_answer(is_success, categories)
-            categories = cat.session.query(TableCategory)
-            for category in categories:
-                print(category.category_id, category.category_name, category.category_parent)
+
+            #categories = cat.session.query(TableCategory)
+            #for category in categories:
+            #    print(category.category_id, category.category_name, category.category_parent)
+
+            cat.category_print()
 
         elif args.command == 'categoryrm':
 

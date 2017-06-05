@@ -587,6 +587,8 @@ if __name__ == "__main__":
         subparser16.add_argument('--file_id', help='id of file', nargs='+')
         subparser16.add_argument('--category_id', help='id of file', nargs='+')
 
+        subparser17 = subparsers.add_parser('check', help='')
+
         args = parser.parse_args()
         #print(args)
         #print()
@@ -799,3 +801,24 @@ if __name__ == "__main__":
             for file_id in args.file_id:
                 is_success, message = cat.file_add2category(file_id, args.category_id)
                 if not is_success: print_error(message)
+
+        elif args.command == 'check':
+
+            conds = [TableFile.path_id == TablePath.path_id]
+            tables = [TableFile, TablePath]
+
+            files = cat.session.query(*tables).filter(alch.and_(*conds))
+
+            for file in files:
+                file = row2dict(file)
+
+                path = os.path.join(file['path'], file['path_to_file'])
+
+                if not os.path.exists(path):
+                    print_error('File {file_id} doesn\'t exists'.format(file_id=file['file_id']))
+                    continue
+
+                with open(path, 'rb') as f:
+                    if hashlib.md5(f.read()).hexdigest() != file['md5']:
+                        print_error('File {file_id} has unmatched hash'.format(file_id=file['file_id']))
+                        continue                        

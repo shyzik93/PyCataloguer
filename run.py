@@ -373,6 +373,23 @@ class PyCataloguer:
         rows = self.cu.execute('SELECT * FROM `file`, `path` WHERE {keys} AND `file`.`path_id`=`path`.`path_id`'.format(keys=keys), tuple(values)).fetchall()
         return True, rows'''
 
+    def file_add2category(self, file_id, category_ids):
+        errs = []
+        tbls = []
+
+        for category_id in category_ids:
+            if self.session.query(TableCategoryFile).filter(alch.and_(TableCategoryFile.file_id==file_id, TableCategoryFile.category_id==category_id)).count():
+                errs.append('The file {0} is in category {1} already.'.format(file_id, category_id))
+                continue
+
+            tbls.append(TableCategoryFile(file_id=file_id, category_id=category_id))
+
+        self.session.add_all(tbls)
+        self.session.commit()
+
+        if errs: return False, '\n'.join(errs)
+        return True, None
+
     def query(self, sql):
         rows = self.cu.execute(sql).fetchall()
         return True, rows
@@ -407,7 +424,7 @@ class PyCataloguer:
         categories = self.session.query(TableCategory).filter(TableCategory.category_parent==parent_id)
         for category in categories:
             print('   '*level, category.category_id, category.category_name, category.category_parent)
-            self.category_select(category.category_id, level+1)
+            self.category_print(category.category_id, level+1)
 
         #rows = self.engine.execute('SELECT * FROM `category`').fetchall()
         #return True, rows
@@ -463,9 +480,12 @@ class PyCataloguer:
 if __name__ == "__main__":
     import argparse
 
+    def print_error(msg):
+        print('{READ} {0} {NORM}'.format(msg, READ=READ, NORM=NORM))
+
     def proc_answer(is_success, arg1):
         if not is_success:
-            print('{READ} {0} {NORM}'.format(arg1, READ=READ, NORM=NORM))
+            print_error(arg1)
             exit(2)
 
     with PyCataloguer() as cat:
@@ -535,6 +555,10 @@ if __name__ == "__main__":
 
         subparser15 = subparsers.add_parser('categoryrm', help='remove categories from db')
         subparser15.add_argument('category_id', help='id of category', nargs='+')
+
+        subparser16 = subparsers.add_parser('file2category', help='add file into categories')
+        subparser16.add_argument('--file_id', help='id of file', nargs='+')
+        subparser16.add_argument('--category_id', help='id of file', nargs='+')
 
         args = parser.parse_args()
         #print(args)
@@ -752,3 +776,9 @@ if __name__ == "__main__":
 
             is_success, none = cat.path_update(args.path_id, {args.property_name:args.property_value})
             proc_answer(is_success, none)            
+
+        elif args.command == 'file2category':
+
+            for file_id in args.file_id:
+                is_success, message = cat.file_add2category(file_id, args.category_id)
+                if not is_success: print_error(message)

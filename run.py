@@ -35,7 +35,7 @@ class CustomBase():
         #    if not key.startswith('_'): yield key
 
     def row2dict(self):
-        return {column.name: str(getattr(self, column.name)) for column in self.__table__.columns}
+        return {column.name: getattr(self, column.name) for column in self.__table__.columns}
 
     def __contains__(self, key):
         for column in self.__table__.columns:
@@ -399,12 +399,38 @@ class PyCataloguer:
 
     def show_item_file(self, file):
         file = dict(file)
-        file['path_to_file'] = os.path.join(file['path'], file['path_to_file'])
-        del file['path_id'], file['path']
 
-        file = {key: value for key, value in file.items() if value is not None}
+        # склеиваем путь 
+        file['path_to_file'] = os.path.join(file['path'], file['path_to_file'])
+        # склеиваем имя с id
+        file['file_name'] = '{0} ({1})'.format(file['file_name'], file['file_id'])
+
+        # добавляем категории
+        file['categories'] = []
+        categories = self.session.query(TableCategoryFile, TableCategory).filter(alch.and_(TableCategoryFile.category_id==TableCategory.category_id, TableCategoryFile.file_id==file['file_id']))
+        for category in categories:
+            file['categories'].append('{0} ({1})'.format(category.TableCategory.category_name, category.TableCategory.category_id))
+        file['categories'] = '; '.join(file['categories'])
+
+        # удаляем пустые илил избыточные значения
+        keys = ['path_id', 'path', 'file_id', 'category_file_id', 'category_id']
+        file = {key: value for key, value in file.items() if value and key not in keys}
 
         self.show_item_raw(file)
+
+    def show_items_file_by_format(self, file, view_format):
+        for file in files:
+            file = row2dict(file)
+            if args.view == 'simple':
+                print(file['file_id'], file['file_name'])
+            elif args.view == 'paths':
+                print(os.path.join(file['path'], file['path_to_file']))
+            elif args.view == 'props':
+                print('---------------')
+                cat.show_item_file(file)
+            elif args.view == 'raw':
+                print('---------------')
+                cat.show_item_raw(file)
 
     def category_add(self, name, parent=0):
         tblCategory = TableCategory(category_name=name, category_parent=parent)
@@ -443,7 +469,6 @@ class PyCataloguer:
         return True, None
 
     def category_update(self, category_id, fields):
-
 
         allowed = ['category_name', 'category_parent']
         for key in fields:
@@ -499,7 +524,9 @@ if __name__ == "__main__":
         subparser1.add_argument('path')
 
         subparser2 = subparsers.add_parser('fileselect', help='view your files')
-        subparser2.add_argument('name', nargs='*', default=['%'])
+        subparser2.add_argument('--file_name', nargs='*', default=None)
+        subparser2.add_argument('--file_id', nargs='*', default=None)
+        subparser2.add_argument('--category_id', nargs='*', default=None)
         subparser2.add_argument('--view', choices=['simple', 'props', 'paths', 'raw'], default='simple')
 
         subparser3 = subparsers.add_parser('query', help='do sql-query')
@@ -569,34 +596,24 @@ if __name__ == "__main__":
             is_success, file_id = cat.file_add(args.name, args.path)
             proc_answer(is_success, file_id)
             print(file_id)
-       
+
         elif args.command == 'fileselect':
 
-            '''if len(args.name) == 1: file_name = ('LIKE', args.name)
-            else: file_name = ('IN', args.name)
+            conds = [TableFile.path_id == TablePath.path_id]
+            tables = [TableFile, TablePath]
 
-            is_success, files = cat.file_select(file_name=file_name)
-            proc_answer(is_success, files)'''
+            if args.file_id is not None: conds.append(TableFile.file_id.in_(args.file_id))
+            if args.category_id is not None:
+                tables.append(TableCategoryFile)
+                conds.append(TableCategoryFile.file_id == TableFile.file_id)
+                conds.append(TableCategoryFile.category_id.in_(args.category_id))
+            if args.file_name is not None:
+                for file_name in args.file_name:
+                    conds.append(TableFile.file_name.ilike(file_name))
 
-            names = [TableFile.path_id == TablePath.path_id]
-            for name in args.name:
-                names.append(TableFile.file_name.like(name))
-
-            files = cat.session.query(TableFile, TablePath).filter(alch.and_(*names))
-
-            for file in files:
-                file = row2dict(file)
-                if args.view == 'simple':
-                    print(file['file_id'], file['file_name'])
-                elif args.view == 'paths':
-                    print(os.path.join(file['path'], file['path_to_file']))
-                elif args.view == 'props':
-                    print('---------------')
-                    cat.show_item_file(file)
-                elif args.view == 'raw':
-                    print('---------------')
-                    cat.show_item_raw(file)
-
+            files = cat.session.query(*tables).filter(alch.and_(*conds))
+            cat.show_items_file_by_format(files, args.view)
+       
         elif args.command == 'query':
 
             is_success, rows = cat.query(args.sql)

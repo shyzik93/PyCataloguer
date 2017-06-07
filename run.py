@@ -254,14 +254,15 @@ class PyCataloguer:
 
         return True, None
 
-    def file_check(self, path_to_file):
+    def file_check(self, path_to_file, check_existing=True, check_having=True):
         data = {}
 
         # существование файла
-        if not os.path.exists(path_to_file):
-            return False, 'file doesn\'t find: {0}'.format(path_to_file)
-        if not os.path.isfile(path_to_file):
-            return False, 'it\'s not a file: {0}'.format(path_to_file)
+        if check_existing:
+            if not os.path.exists(path_to_file):
+                return False, 'file doesn\'t find: {0}'.format(path_to_file)
+            if not os.path.isfile(path_to_file):
+                return False, 'it\'s not a file: {0}'.format(path_to_file)
 
         # разрешённость пути вайла
         #is_success, paths = self.path_select()
@@ -279,9 +280,10 @@ class PyCataloguer:
             data['md5'] = hashlib.md5(f.read()).hexdigest()
 
         # наличие файла в базе
-        expr = alch.or_(TableFile.md5 == data['md5'], alch.and_(TableFile.path_id == data['path_id'], TableFile.path_to_file == data['path_to_file']))
-        if self.session.query(TableFile).filter(expr).count():
-            return False, 'Данный файл уже содержится в базе!'
+        if check_having:
+            expr = alch.or_(TableFile.md5 == data['md5'], alch.and_(TableFile.path_id == data['path_id'], TableFile.path_to_file == data['path_to_file']))
+            if self.session.query(TableFile).filter(expr).count():
+                return False, 'Данный файл уже содержится в базе!'
 
         return True, data
 
@@ -327,8 +329,8 @@ class PyCataloguer:
         for key in fields:
             if key not in allowed: return False, 'Editing this property is not allowed. You can use next properties: {0}.'.format(', '.join(alloowed))
 
-        if 'path_to_path' in fields:
-            is_success, data = self.file_check(fields['path_to_file'])
+        if 'path_to_file' in fields:
+            is_success, data = self.file_check(os.path.abspath(fields['path_to_file']), check_having=False)
             if not is_success: return False, data
 
             fields.update(data)
@@ -519,75 +521,78 @@ if __name__ == "__main__":
         subparsers = parser.add_subparsers(dest='command')
         parser.add_argument('--version', action='version', version='%(prog)s 0.01')
 
-        subparser1 = subparsers.add_parser('fileadd', help='adding your files to db')
-        subparser1.add_argument('name')
-        subparser1.add_argument('path')
+        subparser = subparsers.add_parser('fileadd', help='adding your files to db')
+        subparser.add_argument('name')
+        subparser.add_argument('path')
 
-        subparser2 = subparsers.add_parser('fileselect', help='view your files')
-        subparser2.add_argument('--file_name', nargs='*', default=None)
-        subparser2.add_argument('--file_id', nargs='*', default=None)
-        subparser2.add_argument('--category_id', nargs='*', default=None)
-        subparser2.add_argument('--view', choices=['simple', 'props', 'paths', 'raw'], default='simple')
+        subparser = subparsers.add_parser('fileselect', help='view your files')
+        subparser.add_argument('--file_name', nargs='*', default=None)
+        subparser.add_argument('--file_id', nargs='*', default=None)
+        subparser.add_argument('--category_id', nargs='*', default=None)
+        subparser.add_argument('--view', choices=['simple', 'props', 'paths', 'raw'], default='simple')
 
-        subparser3 = subparsers.add_parser('query', help='do sql-query')
-        subparser3.add_argument('sql', help='any sql')
+        subparser = subparsers.add_parser('query', help='do sql-query')
+        subparser.add_argument('sql', help='any sql')
 
-        subparser4 = subparsers.add_parser('fileprops', help='view data about file')
-        subparser4.add_argument('file_id', help='id of file')
-        subparser4.add_argument('--general', action='store_true')
-        subparser4.add_argument('--categories', action='store_true')
+        subparser = subparsers.add_parser('fileprops', help='view data about file')
+        subparser.add_argument('file_id', help='id of file')
+        subparser.add_argument('--general', action='store_true')
+        subparser.add_argument('--categories', action='store_true')
 
-        subparser5 = subparsers.add_parser('filerm', help='remove files from db')
-        subparser5.add_argument('file_id', help='id of file', nargs='+')
+        subparser = subparsers.add_parser('filerm', help='remove files from db')
+        subparser.add_argument('file_id', help='id of file', nargs='+')
 
-        subparser6 = subparsers.add_parser('pathselect', help='show allowed directories')
+        subparser = subparsers.add_parser('pathselect', help='show allowed directories')
 
-        subparser7 = subparsers.add_parser('pathadd', help='add allowed directories')
-        subparser7.add_argument('path', help='path', nargs='+')
+        subparser = subparsers.add_parser('pathadd', help='add allowed directories')
+        subparser.add_argument('path', help='path', nargs='+')
 
-        subparser8 = subparsers.add_parser('export', help='view dump of database')
-        subparser8.add_argument('--format', default='csv')
+        subparser = subparsers.add_parser('export', help='view dump of database')
+        subparser.add_argument('--format', default='csv')
 
-        subparser9 = subparsers.add_parser('import', help='view dump of database')
-        #subparser9.add_argument('sql_file', help='path to sql dump', type=argparse.FileType('r'))
-        subparser9.add_argument('--format', default='csv')
-        subparser9.add_argument('archive', help='path to archive')
+        subparser = subparsers.add_parser('import', help='view dump of database')
+        #subparser.add_argument('sql_file', help='path to sql dump', type=argparse.FileType('r'))
+        subparser.add_argument('--format', default='csv')
+        subparser.add_argument('archive', help='path to archive')
 
-        subparser10 = subparsers.add_parser('pathrm', help='remove paths from db')
-        subparser10.add_argument('path_id', help='id of path', nargs='+')
+        subparser = subparsers.add_parser('pathrm', help='remove paths from db')
+        subparser.add_argument('path_id', help='id of path', nargs='+')
 
-        subparser11 = subparsers.add_parser('filescan', help='scan directories for new files')
-        subparser11.add_argument('--path_id', help='id of path', default=None)
+        subparser = subparsers.add_parser('filescan', help='scan directories for new files')
+        subparser.add_argument('--path_id', help='id of path', default=None)
  
-        subparser12 = subparsers.add_parser('categoryadd', help='add new categroy')
-        subparser12.add_argument('--parent', help='id of parent category', default="0")
-        subparser12.add_argument('name', help='names of categories', nargs="+")
+        subparser = subparsers.add_parser('categoryadd', help='add new categroy')
+        subparser.add_argument('--parent', help='id of parent category', default="0")
+        subparser.add_argument('name', help='names of categories', nargs="+")
 
-        subparser13 = subparsers.add_parser('categoryselect', help='view categroies')
+        subparser = subparsers.add_parser('categoryselect', help='view categroies')
 
-        subparser14 = subparsers.add_parser('fileupdate', help='')
-        subparser14.add_argument('file_id', help='id of file')
-        subparser14.add_argument('property_name')
-        subparser14.add_argument('property_value')
+        subparser = subparsers.add_parser('fileupdate', help='')
+        subparser.add_argument('file_id', help='id of file')
+        subparser.add_argument('property_name')
+        subparser.add_argument('property_value')
 
-        subparser14 = subparsers.add_parser('categoryupdate', help='')
-        subparser14.add_argument('category_id', help='id of path')
-        subparser14.add_argument('property_name')
-        subparser14.add_argument('property_value')
+        subparser = subparsers.add_parser('categoryupdate', help='')
+        subparser.add_argument('category_id', help='id of path')
+        subparser.add_argument('property_name')
+        subparser.add_argument('property_value')
 
-        subparser14 = subparsers.add_parser('pathupdate', help='')
-        subparser14.add_argument('category_id', help='id of category')
-        subparser14.add_argument('property_name')
-        subparser14.add_argument('property_value')
+        subparser = subparsers.add_parser('pathupdate', help='')
+        subparser.add_argument('category_id', help='id of category')
+        subparser.add_argument('property_name')
+        subparser.add_argument('property_value')
 
-        subparser15 = subparsers.add_parser('categoryrm', help='remove categories from db')
-        subparser15.add_argument('category_id', help='id of category', nargs='+')
+        subparser = subparsers.add_parser('categoryrm', help='remove categories from db')
+        subparser.add_argument('category_id', help='id of category', nargs='+')
 
-        subparser16 = subparsers.add_parser('file2category', help='add file into categories')
-        subparser16.add_argument('--file_id', help='id of file', nargs='+')
-        subparser16.add_argument('--category_id', help='id of file', nargs='+')
+        subparser = subparsers.add_parser('file2category', help='add file into categories')
+        subparser.add_argument('--file_id', help='id of file', nargs='+')
+        subparser.add_argument('--category_id', help='id of file', nargs='+')
 
-        subparser17 = subparsers.add_parser('check', help='')
+        subparser = subparsers.add_parser('check', help='')
+
+        subparser = subparsers.add_parser('filerecalc', help='readd file into categories')
+        subparser.add_argument('file_id', help='id of file')
 
         args = parser.parse_args()
         #print(args)
@@ -821,4 +826,16 @@ if __name__ == "__main__":
                 with open(path, 'rb') as f:
                     if hashlib.md5(f.read()).hexdigest() != file['md5']:
                         print_error('File {file_id} has unmatched hash'.format(file_id=file['file_id']))
-                        continue                        
+                        continue
+
+        elif args.command == 'filerecalc':
+
+            conds = [TableFile.path_id == TablePath.path_id, TableFile.file_id == args.file_id]
+            file = cat.session.query(TableFile, TablePath).filter(alch.and_(*conds)).first()
+            
+            file = row2dict(file)
+
+            is_success, fields = cat.file_check(os.path.join(file['path'], file['path_to_file']), check_having=False)
+            proc_answer(is_success, fields)
+
+            cat.file_update(file['file_id'], fields)

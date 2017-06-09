@@ -4,3 +4,5 @@ __pycache__/
 pycataloguer.db
 dump.sql
 backup
+dist
+pycataloguer.egg-info

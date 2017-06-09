@@ -1,5 +1,3 @@
-#! /usr/bin/env python3
-
 import sqlite3
 import sys
 import os
@@ -129,13 +127,16 @@ class PyCataloguer:
 
     def __init__(self):
 
-        db_path = os.path.join(os.path.dirname(__file__), 'pycataloguer.db')
+        config_path =  os.path.join(os.path.expanduser('~'), '.pycataloguer')
+        if not os.path.exists(config_path): os.mkdir(config_path)
 
-        self.c = sqlite3.connect(db_path)
+        self.db_path = os.path.join(config_path, 'pycataloguer.db')#os.path.join(os.path.dirname(__file__), 'pycataloguer.db')
+
+        self.c = sqlite3.connect(self.db_path)
         self.c.row_factory = sqlite3.Row
         self.cu = self.c.cursor()
 
-        self.engine = alch.create_engine('sqlite:///'+db_path, echo=False)
+        self.engine = alch.create_engine('sqlite:///'+self.db_path, echo=False)
         self.Session = sessionmaker(self.engine)
         self.session = self.Session()
 
@@ -419,17 +420,17 @@ class PyCataloguer:
 
         self.show_item_raw(file)
 
-    def show_items_file_by_format(self, file, view_format):
+    def show_items_file_by_format(self, files, view_format):
         for file in files:
             file = row2dict(file)
-            if args.view == 'simple':
+            if view_format == 'simple':
                 print(file['file_id'], file['file_name'])
-            elif args.view == 'paths':
+            elif view_format == 'paths':
                 print(os.path.join(file['path'], file['path_to_file']))
-            elif args.view == 'props':
+            elif view_format == 'props':
                 print('---------------')
                 cat.show_item_file(file)
-            elif args.view == 'raw':
+            elif view_format == 'raw':
                 print('---------------')
                 cat.show_item_raw(file)
 

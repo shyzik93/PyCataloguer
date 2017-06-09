@@ -1,6 +1,10 @@
+#! /usr/bin/env python3
+
 import argparse
 import os
 import zipfile
+
+import sqlalchemy as alch
 
 import pycataloguer as pycat
 
@@ -93,6 +97,8 @@ def do_cmd():
         subparser = subparsers.add_parser('filerecalc', help='readd file into categories')
         subparser.add_argument('file_id', help='id of file')
 
+        subparser = subparsers.add_parser('dbpath', help='show path to database')
+
         args = parser.parse_args()
         #print(args)
         #print()
@@ -111,7 +117,7 @@ def do_cmd():
             if args.file_id is not None: conds.append(pycat.TableFile.file_id.in_(args.file_id))
             if args.category_id is not None:
                 tables.append(pycat.TableCategoryFile)
-                conds.append(pycat.TableCategoryFile.file_id == TableFile.file_id)
+                conds.append(pycat.TableCategoryFile.file_id == pycat.TableFile.file_id)
                 conds.append(pycat.TableCategoryFile.category_id.in_(args.category_id))
             if args.file_name is not None:
                 for file_name in args.file_name:
@@ -151,7 +157,7 @@ def do_cmd():
 
             #is_success, paths = cat.path_select()
             #proc_answer(is_success, paths)
-            paths = cat.session.query(TablePath)
+            paths = cat.session.query(pycat.TablePath)
             for path in paths: print(path.path_id, path.path)
 
         elif args.command == 'pathadd':
@@ -338,3 +344,7 @@ def do_cmd():
             proc_answer(is_success, fields)
 
             cat.file_update(file['file_id'], fields)
+
+        elif args.command == 'dbpath':
+
+            print(cat.db_path)

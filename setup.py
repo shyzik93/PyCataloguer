@@ -22,7 +22,7 @@ setup(
     entry_points={
         'console_scripts': ['pycat = pycataloguer.cli:do_cmd']
     },
-    include_package_data=True
+    include_package_data=True,
 )
 
 '''

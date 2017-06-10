@@ -1,58 +1,97 @@
 #!/usr/bin/env bash
 
-pycat=`dirname $0`
-pycat="$pycat/run.py"
+do_test () {
+	echo "$3 $1"
+	echo -e "\033[0;32m------- Output is true\n$2\033[0;0m"
+	r=`$1`
 
-mkdir /tmp/dir1 /tmp/dir2
+    #if [ $3 == 59 ]
+    #then
+    #    echo "`echo -e \"$2\"`" > c_true
+    #    echo "$r" > c_res
+    #fi
+
+	if [ "$r" != "`echo -e \"$2\"`" ]
+    then
+	    echo -e "\033[0;31m------- Output is false\n$r\033[0;0m"
+	    exit
+	fi
+}
+
+mkdir /tmp/dir1 /tmp/dir2 /tmp/dir3
 
 echo 'text1' > /tmp/dir1/file1
 echo 'text2' > /tmp/dir1/file2
 echo 'text3' > /tmp/dir1/file3
 
 # проверяем, что всё чисто
+echo -e '\n\033[0;33mIs database clear?:\033[0;0m\n'
 
-$pycat pathselect
-$pycat fileselect
-$pycat categoryselect
+do_test 'pycat pathselect'       ""   $LINENO
+do_test 'pycat fileselect'       ""   $LINENO
+do_test 'pycat categoryselect'   ""   $LINENO
 
-# добавляем данные
+# Тестируем Paths
+echo -e '\n\033[0;33mTest paths:\033[0;0m\n'
 
-$pycat pathadd /tmp/dir1
-$pycat pathadd /tmp/dir2
+do_test 'pycat pathadd /tmp/dir1'   "1"             $LINENO
+do_test 'pycat pathselect'          "1 /tmp/dir1"   $LINENO
+do_test 'pycat pathadd /tmp/dir2'   "2"             $LINENO
 
-$pycat fileadd 'My File1' /tmp/dir1/file1
-$pycat fileadd 'My File2' /tmp/dir1/file2
-$pycat fileadd 'My File3' /tmp/dir1/file3
+do_test 'pycat pathselect'                    "1 /tmp/dir1\n2 /tmp/dir2"    $LINENO
+do_test 'pycat pathselect --path_id 2'        "2 /tmp/dir2"                 $LINENO
+do_test 'pycat pathupdate 2 path /tmp/dir3'   ""                            $LINENO
+do_test 'pycat pathselect --path_id 2'        "2 /tmp/dir3"                 $LINENO
 
-$pycat categoryadd 'My category1' 'My category2' 'My category3'
-$pycat categoryadd --parent 2 'My category4' 'My category5'
-$pycat categoryadd --parent 5 'My category6'
+do_test 'pycat pathadd /tmp/dir2'   "3"                                     $LINENO
+do_test 'pycat pathrm 2'            ""                                      $LINENO
+do_test 'pycat pathselect'          "1 /tmp/dir1\n3 /tmp/dir2"              $LINENO
+do_test 'pycat pathrm 1 3'          ""                                      $LINENO
+do_test 'pycat pathselect'          ""   $LINENO
 
-# меняем данные
+# Тестируем Categories
+echo -e '\n\033[0;33mTest categories:\033[0;0m\n'
 
-#$pycat pathupdate 1 path_name 'Do not do this without reason'
-$pycat fileupdate 2 file_name 'My updated file'
-$pycat categoryupdate 6 category_name 'My updated category'
+do_test "pycat categoryadd MyCategory1 MyCategory2 MyCategory3"   "1 2 3 \n"   $LINENO
+do_test 'pycat categoryadd --parent 2 MyCategory4 MyCategory5'    "4 5 \n"     $LINENO
+do_test 'pycat categoryadd --parent 5 MyCategory6'                 "6 \n"      $LINENO
 
-# выводи данные
+do_test 'pycat categoryselect' "MyCategory1 (1)
+MyCategory2 (2)
+    MyCategory4 (4)
+    MyCategory5 (5)
+        MyCategory6 (6)
+MyCategory3 (3)" $LINENO
 
-echo -e '\033[0;32mPaths:\033[0;0m'
-$pycat pathselect
-echo -e '\033[0;32mFiles:\033[0;0m'
-$pycat fileselect
-echo -e '\033[0;32mCategories:\033[0;0m'
-$pycat categoryselect
-echo -e '\033[0;32mFiles with properties:\033[0;0m'
-$pycat fileselect --view props
+do_test 'pycat categoryupdate 5 category_name MycategoryUpdated5'   ""    $LINENO
+do_test 'pycat categoryselect' "MyCategory1 (1)
+MyCategory2 (2)
+    MyCategory4 (4)
+    MycategoryUpdated5 (5)
+        MyCategory6 (6)
+MyCategory3 (3)" $LINENO
 
-# удаляем данные
+do_test 'pycat categoryrm 6'   ""    $LINENO
+do_test 'pycat categoryselect' "MyCategory1 (1)
+MyCategory2 (2)
+    MyCategory4 (4)
+    MycategoryUpdated5 (5)
+MyCategory3 (3)" $LINENO
+do_test 'pycat categoryrm 1 3 4 5 2'   ""    $LINENO
+do_test 'pycat categoryselect' "" $LINENO
 
-$pycat pathrm 1 2
-$pycat filerm 1 2 3
-$pycat categoryrm 1 2 3 4 5 6
+# Тестируем Files
+echo -e '\n\033[0;33mTest files:\033[0;0m\n'
 
-# проверяем, что всё чисто
+a=`pycat pathadd /tmp/dir1`
 
-$pycat pathselect
-$pycat fileselect
-$pycat categoryselect
+do_test 'pycat fileadd MyFile1 /tmp/dir1/file1'          "1"      $LINENO
+do_test 'pycat fileadd MyFile2 /tmp/dir1/file2'          "2"      $LINENO
+
+do_test 'pycat fileselect' "1 MyFile1
+2 MyFile2" $LINENO
+
+do_test 'pycat filerm 1 2' "" $LINENO
+do_test 'pycat fileselect' "" $LINENO
+
+a=`pycat pathrm 1`

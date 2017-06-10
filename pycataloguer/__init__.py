@@ -8,11 +8,6 @@ import sqlalchemy as alch
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-READ = '\033[0;31m'
-NORM = '\033[0;0m'
-GREEN= '\033[0;32m'
-ORANGE = '\033[0;33m'
-
 '''class CustomProxy(alch.engine.ResultProxy):
     def __getitem__(self, key):
         print('/////////', key)
@@ -212,6 +207,11 @@ class PyCataloguer:
         return True, tblPath.path_id
 
     def path_delete(self, path_id):
+        # проверяем, не используется ли данный путь каким-либо файлом 
+        file = self.session.query(TableFile).filter(TableFile.path_id == path_id).count()
+        if file > 0:
+            return False, 'Путь {0} используется в количестве файлов: {1}'.format(path_id, file)
+
         self.session.query(TablePath).filter(TablePath.path_id==path_id).delete()
         self.session.commit()
 
@@ -396,44 +396,6 @@ class PyCataloguer:
         rows = self.cu.execute(sql).fetchall()
         return True, rows
 
-    def show_item_raw(self, dct):
-        for key in dct.keys(): print('{GREEN} {key} = {ORANGE} {value} {NORM}'.format(key=key, value=dct[key], GREEN=GREEN, ORANGE=ORANGE, NORM=NORM))
-
-    def show_item_file(self, file):
-        file = dict(file)
-
-        # склеиваем путь 
-        file['path_to_file'] = os.path.join(file['path'], file['path_to_file'])
-        # склеиваем имя с id
-        file['file_name'] = '{0} ({1})'.format(file['file_name'], file['file_id'])
-
-        # добавляем категории
-        file['categories'] = []
-        categories = self.session.query(TableCategoryFile, TableCategory).filter(alch.and_(TableCategoryFile.category_id==TableCategory.category_id, TableCategoryFile.file_id==file['file_id']))
-        for category in categories:
-            file['categories'].append('{0} ({1})'.format(category.TableCategory.category_name, category.TableCategory.category_id))
-        file['categories'] = '; '.join(file['categories'])
-
-        # удаляем пустые илил избыточные значения
-        keys = ['path_id', 'path', 'file_id', 'category_file_id', 'category_id']
-        file = {key: value for key, value in file.items() if value and key not in keys}
-
-        self.show_item_raw(file)
-
-    def show_items_file_by_format(self, files, view_format):
-        for file in files:
-            file = row2dict(file)
-            if view_format == 'simple':
-                print(file['file_id'], file['file_name'])
-            elif view_format == 'paths':
-                print(os.path.join(file['path'], file['path_to_file']))
-            elif view_format == 'props':
-                print('---------------')
-                cat.show_item_file(file)
-            elif view_format == 'raw':
-                print('---------------')
-                cat.show_item_raw(file)
-
     def category_add(self, name, parent=0):
         tblCategory = TableCategory(category_name=name, category_parent=parent)
         res = self.session.add(tblCategory)
@@ -451,17 +413,23 @@ class PyCataloguer:
         ''' @todo Make it using nested sets '''
         categories = self.session.query(TableCategory).filter(TableCategory.category_parent==parent_id)
         for category in categories:
-            print('   '*level, category.category_id, category.category_name, category.category_parent)
+            print("{0}{1} ({2})".format('    '*level, category.category_name, category.category_id))
+            #print('   '*level, category.category_id, category.category_name, category.category_parent)
             self.category_print(category.category_id, level+1)
 
         #rows = self.engine.execute('SELECT * FROM `category`').fetchall()
         #return True, rows
 
     def category_delete(self, category_id):
-        # проверяем, не используется ли категория
+        # проверяем, не входит ли в категорию какой-либо файл 
         category_file = self.session.query(TableCategoryFile).filter(TableCategoryFile.category_id == category_id).count()
         if category_file > 0:
-            return False, 'Категория {0} используется в количестве файлов: {1}'.filter(category_id, category_file)
+            return False, 'Категория {0} используется в количестве файлов: {1}'.format(category_id, category_file)
+
+        # проверяем, не имеет ли категория дочерних категорий
+        category_file = self.session.query(TableCategory).filter(TableCategory.category_parent == category_id).count()
+        if category_file > 0:
+            return False, 'Категория {0} имеет количество дочерних категорий: {1}'.format(category_id, category_file)
 
         self.session.query(TableCategory).filter(TableCategory.category_id==category_id).delete()
         self.session.commit()
@@ -480,25 +448,3 @@ class PyCataloguer:
         self.session.commit()
 
         return True, None
-
-    def export(self, Table, path, fzip):
-        fname = '{0}.csv'.format(Table.__tablename__)
-        fpath = os.path.join(path, fname)
-        f = open(fpath, 'w')
-        fcsv = csv.writer(f)
-
-        # формируем и записываем заголовки полей
-        field_names = []
-        for column in Table.__table__.columns:
-            field_names.append(column.name)
-        fcsv.writerow(field_names)
-
-        # вынимаем из базы записываем значения полей
-        for row in self.session.query(Table):
-            field_values = [getattr(row, name) for name in field_names]
-            fcsv.writerow(field_values)
-
-        # архивируем файл, а после - удаляем неархивированный файл
-        f.close()
-        fzip.write(fpath, fname)
-        os.remove(fpath)

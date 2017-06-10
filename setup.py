@@ -33,4 +33,7 @@ sudo xargs rm -vr < installed.txt
 # uinstall in your home directory
 python setup.py install --user --record installed.txt
 xargs rm -vr < installed.txt
+
+Из папки rep://dist:
+cd pycataloguer-0.1.0 ; xargs rm -vr < installed.txt ; cd .. ; tar -xzf pycataloguer-0.1.0.tar.gz ; cd pycataloguer-0.1.0 ; python3 setup.py install ; cd ..
 '''

@@ -5,13 +5,24 @@ try:
 except ImportError:
     from distutils.core import setup
 
+def get_long_description():
+    path = os.path.join(os.path.dirname(__file__), 'README.md')
+
+    try:
+        import pypandoc
+        return pypandoc.convert(path, 'rst')
+    except(IOError, ImportError, RuntimeError):
+        with open(path, 'r') as f:
+        	return f.read()
+
 setup(
     name='pycataloguer',
-    version='0.1.0',
+    version='0.0.2',
     license='LGPL-3.0',
     description='Cataloguer for your files',
     packages=['pycataloguer'],
-    long_description=open(os.path.join(os.path.dirname(__file__), 'README.md')).read(),
+    #long_description=open(os.path.join(os.path.dirname(__file__), 'README.md')).read(),
+    long_description=get_long_description(),
     author='Konstantin Polyakov',
     author_email='shyzik93@mail.ru',
     url='https://github.com/shyzik93/PyCataloguer',
@@ -23,6 +34,12 @@ setup(
         'console_scripts': ['pycat = pycataloguer.cli:do_cmd']
     },
     include_package_data=True,
+    classifiers=[
+		"Environment :: Console",
+		"Natural Language :: English",
+		"Programming Language :: Python :: 3.4",
+		"Topic :: Scientific/Engineering"
+    ]
 )
 
 '''

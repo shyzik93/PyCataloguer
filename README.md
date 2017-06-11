@@ -1,12 +1,10 @@
 # PyCataloguer
 
-PyCataloguer is universal cataloguer for your files. You can organaze books, videos, music on your computer. You can copy files, database and source code on another computer and you need only replace some absolute paths in the database!
+PyCataloguer is universal cataloguer for your files. You can organize books, videos, music on your computer. You can copy files, database and source code on another computer and you need only replace some absolute paths in the database!
 
-The programm has command line interface. I wiil be very happy, if you will make GUI for it!
+The programm has command line interface. To see more, run `pycat -h` after installing.
 
-The programm doesn't remove, replace or rename origin files on your computer. It works with data of files in own database.
-
-The programm use library "SQLAlchemy". To install it you can run command: "pip install SQLAlchemy" or "pip3 install SQLAlchemy"
+To install PyCataloguer, run command `pip3 install pycataloguer`
 
 # Roadmap
 
@@ -15,7 +13,7 @@ The programm use library "SQLAlchemy". To install it you can run command: "pip i
 - [x] paths, where PyCataloguer search the files - adding, deleting, viewing.
 - [x] import/export sql dump of database
 - [x] categories - adding, deliting, parenting (tree of categories)
-- [ ] categories - adding files to categories
+- [x] categories - adding files to categories
 - [ ] files - open via standart software (from search and from viewing properties)
 - [x] files - scan directories and adding new files
 - [ ] files - scan directories and search replaced files (by md5-hash)

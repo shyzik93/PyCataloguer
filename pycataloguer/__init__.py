@@ -2,7 +2,6 @@ import sqlite3
 import sys
 import os
 import hashlib
-import csv
 
 import sqlalchemy as alch
 from sqlalchemy.ext.declarative import declarative_base
@@ -122,10 +121,10 @@ class PyCataloguer:
 
     def __init__(self):
 
-        config_path =  os.path.join(os.path.expanduser('~'), '.pycataloguer')
-        if not os.path.exists(config_path): os.mkdir(config_path)
+        self.data_dir =  os.path.join(os.path.expanduser('~'), '.pycataloguer')
+        if not os.path.exists(self.data_dir): os.mkdir(self.data_dir)
 
-        self.db_path = os.path.join(config_path, 'pycataloguer.db')#os.path.join(os.path.dirname(__file__), 'pycataloguer.db')
+        self.db_path = os.path.join(self.data_dir, 'pycataloguer.db')#os.path.join(os.path.dirname(__file__), 'pycataloguer.db')
 
         self.c = sqlite3.connect(self.db_path)
         self.c.row_factory = sqlite3.Row

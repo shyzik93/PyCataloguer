@@ -3,6 +3,7 @@
 import argparse
 import os
 import zipfile
+import csv
 
 import sqlalchemy as alch
 
@@ -176,7 +177,7 @@ class CLI(pycat.PyCataloguer):
                     if is_break: break
 
     def cmd_export(self, args):
-            path = os.path.join(os.path.dirname(__file__))
+            path = self.data_dir#os.path.join(os.path.dirname(__file__))
 
             if  args.format == 'raw':
 
@@ -189,7 +190,8 @@ class CLI(pycat.PyCataloguer):
 
             elif args.format == 'csv':
 
-                fzip = zipfile.ZipFile(os.path.join(path, 'export.zip'), 'w', zipfile.ZIP_DEFLATED)
+                #fzip = zipfile.ZipFile(os.path.join(path, 'export.zip'), 'w', zipfile.ZIP_DEFLATED)
+                fzip = zipfile.ZipFile(args.archive, 'w', zipfile.ZIP_DEFLATED)
 
                 self.export(pycat.TablePath, path, fzip)
                 self.export(pycat.TableFile, path, fzip)
@@ -197,7 +199,7 @@ class CLI(pycat.PyCataloguer):
                 self.export(pycat.TableCategoryFile, path, fzip)
 
     def cmd_import(self, args):
-            path = os.path.join(os.path.dirname(__file__))
+            path = self.data_dir#os.path.join(os.path.dirname(__file__))
 
             if args.format == 'raw':
 
@@ -215,7 +217,7 @@ class CLI(pycat.PyCataloguer):
                     # Определяем класс таблицы
                     Table = fname.split('.')[0]
                     Table = 'Table' + Table.title().replace('_', '')
-                    Table = globals()[Table]
+                    Table = getattr(pycat, Table)#globals()[Table]
 
                     # Разархивируем файл
                     fpath = os.path.join(path, fname)
@@ -312,7 +314,6 @@ class CLI(pycat.PyCataloguer):
         self.file_update(file['file_id'], fields)
 
     def cmd_dbpath(self, args):
-        yield 1
         print(self.db_path)
 
 def do_cmd():
@@ -358,11 +359,12 @@ def do_cmd():
 
         subparser = subparsers.add_parser('export', help='view dump of database')
         subparser.add_argument('--format', default='csv')
+        subparser.add_argument('archive', help='path to safe the archive of database')
 
         subparser = subparsers.add_parser('import', help='view dump of database')
         #subparser.add_argument('sql_file', help='path to sql dump', type=argparse.FileType('r'))
         subparser.add_argument('--format', default='csv')
-        subparser.add_argument('archive', help='path to archive')
+        subparser.add_argument('archive', help='path to archive of database')
 
         subparser = subparsers.add_parser('pathrm', help='remove paths from db')
         subparser.add_argument('path_id', help='id of path', nargs='+')

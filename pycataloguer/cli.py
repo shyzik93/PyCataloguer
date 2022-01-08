@@ -4,6 +4,7 @@ import argparse
 import os
 import zipfile
 import csv
+import hashlib
 
 import sqlalchemy as alch
 
@@ -144,7 +145,8 @@ class CLI(pycat.PyCataloguer):
         for path in args.path:
             is_success, path_id = self.path_add(path)
             proc_answer(is_success, path_id)
-            print(path_id)
+            print(path_id, end=' ')
+        print('\n', end='')
 
     def cmd_filescan(self, args):
             is_success, paths = self.path_select(args.path_id)
@@ -410,8 +412,9 @@ def do_cmd():
 
         args = parser.parse_args()
 
-        func = getattr(cat, 'cmd_'+args.command)
-        res = func(args)
+        if args.command is not None:
+            func = getattr(cat, 'cmd_'+args.command)
+            res = func(args)
 
         '''for is_success, _res in res:
             if is_success: print(_res)

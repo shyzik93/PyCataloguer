@@ -25,6 +25,8 @@ setup(
     long_description=get_long_description(),
     author='Konstantin Polyakov',
     author_email='shyzik93@mail.ru',
+    maintainer='Konstantin Polyakov',
+    maintainer_email='shyzik93@mail.ru',
     url='https://github.com/shyzik93/PyCataloguer',
     download_url='https://github.com/shyzik93/pycataloguer/archive/master.zip',
 
